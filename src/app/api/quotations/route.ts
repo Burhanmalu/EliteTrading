@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   const sortBy = searchParams.get("sortBy") || "quotationDate";
   const sortDir = searchParams.get("sortDir") === "asc" ? "asc" : "desc";
   const page = Math.max(1, Number(searchParams.get("page") || 1));
-  const pageSize = Math.min(100, Math.max(1, Number(searchParams.get("pageSize") || 20)));
+  const pageSize = Math.min(100, Math.max(1, Number(searchParams.get("pageSize") || 10)));
 
   const where: Record<string, unknown> = {};
   if (search) {

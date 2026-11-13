@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { formatDate, formatINR } from "@/lib/format";
 import { StatusBadge } from "./StatusBadge";
+import { Pagination } from "@/components/Pagination";
 
 const PROJECT_STATUSES = [
   "Approved – Installation Pending",
@@ -135,7 +136,7 @@ export function ProjectsClient() {
       search: search.trim(),
       status,
       page: String(page),
-      pageSize: "15",
+      pageSize: "10",
     });
     try {
       const res = await fetch(`/api/projects?${params}`);
@@ -240,9 +241,6 @@ export function ProjectsClient() {
     setStatus("ALL");
     setPage(1);
   };
-
-  const startIndex = total === 0 ? 0 : (page - 1) * 15 + 1;
-  const endIndex = Math.min(page * 15, total);
 
   return (
     <div className="space-y-5">
@@ -641,36 +639,15 @@ export function ProjectsClient() {
             </div>
 
             {/* Pagination Controls */}
-            <div className="px-4 py-3 bg-[#F7F8F4]/50 border-t border-[#E5EAE3] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#718075]">
-              <div>
-                Showing <span className="font-semibold text-[#1F2937]">{startIndex}</span> to{" "}
-                <span className="font-semibold text-[#1F2937]">{endIndex}</span> of{" "}
-                <span className="font-semibold text-[#1F2937]">{total}</span> projects
-              </div>
-              {totalPages > 1 && (
-                <div className="flex items-center gap-1.5">
-                  <button
-                    disabled={page <= 1}
-                    onClick={() => setPage((p) => p - 1)}
-                    className="p-1.5 rounded-lg border border-[#E5EAE3] bg-white text-[#1F2937] hover:bg-[#F7F8F4] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                    title="Previous Page"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  <span className="px-2 text-xs font-medium text-[#1F2937]">
-                    Page {page} of {totalPages}
-                  </span>
-                  <button
-                    disabled={page >= totalPages}
-                    onClick={() => setPage((p) => p + 1)}
-                    className="p-1.5 rounded-lg border border-[#E5EAE3] bg-white text-[#1F2937] hover:bg-[#F7F8F4] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                    title="Next Page"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
-            </div>
+            <Pagination
+              currentPage={page}
+              totalPages={totalPages}
+              totalRecords={total}
+              pageSize={10}
+              recordLabel="projects"
+              onPageChange={(p) => setPage(p)}
+              isLoading={loading}
+            />
           </>
         )}
       </div>
