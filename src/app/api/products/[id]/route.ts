@@ -24,6 +24,7 @@ export async function PATCH(
         categoryId: body.categoryId,
         brandId: body.brandId || null,
         drawingType: body.drawingType,
+        defaultPanelsJson: body.defaultPanelsJson ? String(body.defaultPanelsJson) : undefined,
         defaultWidthMm: Number(body.defaultWidthMm) || 1800,
         defaultHeightMm: Number(body.defaultHeightMm) || 1500,
         defaultRatePerSqFt: Number(body.defaultRatePerSqFt) || 550,

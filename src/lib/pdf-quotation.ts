@@ -619,6 +619,7 @@ export async function generateQuotationPdfBuffer(
             .stroke()
             .undash()
             .restore();
+          doc.rect(gx + gw - 4, cy - 6, 2.5, 12).fillAndStroke("#0f172a", "#0f172a");
         } else if (panel.kind === "OPENABLE_RIGHT") {
           doc
             .save()
@@ -631,6 +632,48 @@ export async function generateQuotationPdfBuffer(
             .stroke()
             .undash()
             .restore();
+          doc.rect(gx + 1.5, cy - 6, 2.5, 12).fillAndStroke("#0f172a", "#0f172a");
+        } else if (panel.kind === "TILT_TURN") {
+          doc
+            .save()
+            .dash(3, { space: 2 })
+            .strokeColor("#334155")
+            .lineWidth(0.7)
+            .moveTo(gx, gy)
+            .lineTo(gx + gw, cy)
+            .lineTo(gx, gy + gh)
+            .stroke()
+            .strokeColor("#0284c7")
+            .moveTo(gx, gy + gh)
+            .lineTo(cx, gy)
+            .lineTo(gx + gw, gy + gh)
+            .stroke()
+            .undash()
+            .restore();
+          doc.rect(gx + gw - 4, cy - 6, 2.5, 12).fillAndStroke("#0f172a", "#0f172a");
+        } else if (panel.kind === "TOP_HUNG") {
+          doc.rect(gx + gw * 0.2 - 3, gy - 1.5, 6, 2.5).fill("#1e293b");
+          doc.rect(gx + gw * 0.8 - 3, gy - 1.5, 6, 2.5).fill("#1e293b");
+          doc
+            .save()
+            .dash(3, { space: 2 })
+            .strokeColor("#334155")
+            .lineWidth(0.7)
+            .moveTo(gx, gy)
+            .lineTo(cx, gy + gh)
+            .lineTo(gx + gw, gy)
+            .stroke()
+            .undash()
+            .restore();
+          doc.rect(cx - 6, gy + gh - 3, 12, 2.5).fill("#0f172a");
+        } else if (panel.kind === "SHOWER_DOOR") {
+          doc.rect(gx + gw - 3, gy + gh * 0.25 - 4, 3, 8).fill("#475569");
+          doc.rect(gx + gw - 3, gy + gh * 0.75 - 4, 3, 8).fill("#475569");
+          doc.strokeColor("#1e293b").lineWidth(1.8).moveTo(gx + 5, cy - 14).lineTo(gx + 5, cy + 14).stroke();
+        } else if (panel.kind === "CORNER_POST") {
+          doc.rect(cursorX, innerY, pw, innerH).fillAndStroke("#334155", "#0f172a");
+          doc.strokeColor("#64748b").lineWidth(0.5).moveTo(cursorX, innerY).lineTo(cursorX + pw, innerY + innerH).stroke();
+          doc.moveTo(cursorX + pw, innerY).lineTo(cursorX, innerY + innerH).stroke();
         }
 
         // Sliding direction arrow
@@ -721,14 +764,16 @@ export async function generateQuotationPdfBuffer(
         const topY = dimY + 22;
         const trackCount =
           cfg.trackCount ??
-          (comp.drawingType.includes("3_TRACK") || (comp.track && comp.track.includes("3 Track"))
+          (comp.drawingType.includes("4_TRACK")
+            ? 4
+            : comp.drawingType.includes("3_TRACK") || (comp.track && comp.track.includes("3 Track"))
             ? 3
             : comp.drawingType.includes("2_TRACK") || (comp.track && comp.track.includes("2 Track"))
             ? 2
             : 1);
 
-        const frameDepthMm = getProductFrameDepthMm(comp.track, trackCount);
-        const topH = Math.min(24, Math.max(16, topViewBoxH * 0.45));
+        const frameDepthMm = cfg.frameDepthMm ?? getProductFrameDepthMm(comp.track, trackCount, cfg.frameStyle);
+        const topH = Math.min(26, Math.max(16, topViewBoxH * 0.45));
         const topStartX = startX;
         const topW = drawW;
 
@@ -758,7 +803,14 @@ export async function generateQuotationPdfBuffer(
         panels.forEach((p, pIdx) => {
           const ratio = (p.widthRatio || 1) / totalRatio;
           const pw = pIdx === panels.length - 1 ? topStartX + topW - 4 - tCursorX : (topW - 8) * ratio;
-          const assignedTrack = trackCount === 3 ? (pIdx % 3) + 1 : trackCount === 2 ? (pIdx % 2) + 1 : 1;
+          const assignedTrack =
+            trackCount === 4
+              ? (pIdx % 4) + 1
+              : trackCount === 3
+              ? (pIdx % 3) + 1
+              : trackCount === 2
+              ? (pIdx % 2) + 1
+              : 1;
           const ty = topY + assignedTrack * trackSpacing;
           const isMesh = p.kind === "SLIDE_MESH";
 

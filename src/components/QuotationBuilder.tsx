@@ -687,7 +687,9 @@ export function QuotationBuilder({
           : 1),
       isPriceOverridden: false,
       drawingType: prod.drawingType,
-      drawingConfig: getDefaultDrawingConfig(prod.drawingType, baseWidth),
+      drawingConfig: prod.defaultPanelsJson
+        ? parseDrawingConfig(prod.defaultPanelsJson, prod.drawingType, baseWidth)
+        : getDefaultDrawingConfig(prod.drawingType, baseWidth),
       customImageUrl: defaultImg,
       showUpvcFields: showUpvc,
       profileSystem: spec.profileSystem || "",

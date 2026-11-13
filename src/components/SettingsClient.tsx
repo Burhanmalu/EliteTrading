@@ -13,9 +13,12 @@ import {
   Upload,
   Star,
   CheckCircle2,
+  Search,
+  Edit2,
 } from "lucide-react";
 import { DRAWING_TYPE_LABELS } from "@/lib/drawing-types";
 import { TechnicalDrawingSvg } from "./TechnicalDrawingSvg";
+import { DrawingEditorModal } from "./DrawingEditorModal";
 import { formatINR } from "@/lib/format";
 
 type SettingsTab = "company" | "catalogue" | "products" | "options" | "terms" | "users";
@@ -61,6 +64,44 @@ export function SettingsClient({ isAdmin }: { isAdmin: boolean }) {
     roleId: "",
     password: "",
   });
+
+  // Drawing Editor modal & filters
+  const [editorModalOpen, setEditorModalOpen] = useState(false);
+  const [editorProduct, setEditorProduct] = useState<any>(null);
+  const [productSearch, setProductSearch] = useState("");
+  const [productCatFilter, setProductCatFilter] = useState("ALL");
+  const [productBrandFilter, setProductBrandFilter] = useState("ALL");
+
+  const handleSaveProductTemplate = async (payload: any) => {
+    try {
+      if (payload.id) {
+        const res = await fetch(`/api/products/${payload.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || "Failed to update product");
+        }
+      } else {
+        const res = await fetch("/api/products", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || "Failed to create product");
+        }
+      }
+      notify("Product template saved successfully!");
+      setEditorModalOpen(false);
+      loadAll();
+    } catch (err: any) {
+      alert(err.message || "Failed to save product template");
+    }
+  };
 
   const loadAll = useCallback(async () => {
     try {
@@ -490,228 +531,220 @@ export function SettingsClient({ isAdmin }: { isAdmin: boolean }) {
       )}
 
       {/* Tab 3: Products & Technical Drawings */}
-      {tab === "products" && (
-        <div className="space-y-6">
-          {isAdmin && (
-            <form
-              onSubmit={handleCreateProduct}
-              className="bg-white rounded-xl border border-[#DDE4DA] p-5 shadow-sm space-y-4"
-            >
-              <h2 className="text-sm font-bold text-[#25382E]">
-                Add New Product Design
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
-                <input
-                  required
-                  placeholder="Product Code (e.g. UPVC-SG-09)"
-                  value={newProd.code}
-                  onChange={(e) => setNewProd({ ...newProd, code: e.target.value })}
-                  className="px-3 py-2 rounded-lg border border-slate-300 font-mono"
-                />
-                <input
-                  required
-                  placeholder="Product Name"
-                  value={newProd.name}
-                  onChange={(e) => setNewProd({ ...newProd, name: e.target.value })}
-                  className="px-3 py-2 rounded-lg border border-slate-300"
-                />
+      {tab === "products" && (() => {
+        const filteredProducts = products.filter((p) => {
+          const q = productSearch.toLowerCase().trim();
+          const matchesSearch =
+            !q ||
+            String(p.name || "").toLowerCase().includes(q) ||
+            String(p.code || "").toLowerCase().includes(q) ||
+            String(p.drawingType || "").toLowerCase().includes(q);
+          const matchesCat = productCatFilter === "ALL" || p.categoryId === productCatFilter;
+          const matchesBrand =
+            productBrandFilter === "ALL" ||
+            (productBrandFilter === "NONE" ? !p.brandId : p.brandId === productBrandFilter);
+          return matchesSearch && matchesCat && matchesBrand;
+        });
+
+        return (
+          <div className="space-y-4">
+            {/* Toolbar */}
+            <div className="bg-white rounded-xl border border-[#DDE4DA] p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="flex flex-1 flex-wrap items-center gap-2.5">
+                <div className="relative min-w-[220px] max-w-sm flex-1">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search product name, code, design..."
+                    value={productSearch}
+                    onChange={(e) => setProductSearch(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-[#DDE4DA] bg-[#F7F8F4] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#174535]"
+                  />
+                </div>
+
                 <select
-                  value={newProd.categoryId}
-                  onChange={(e) =>
-                    setNewProd({ ...newProd, categoryId: e.target.value })
-                  }
-                  className="px-3 py-2 rounded-lg border border-slate-300 bg-white"
+                  value={productCatFilter}
+                  onChange={(e) => setProductCatFilter(e.target.value)}
+                  className="px-3 py-2 text-xs rounded-lg border border-[#DDE4DA] bg-white text-slate-700"
                 >
+                  <option value="ALL">All Categories ({categories.length})</option>
                   {categories.map((c) => (
                     <option key={String(c.id)} value={String(c.id)}>
                       {String(c.name)}
                     </option>
                   ))}
                 </select>
+
                 <select
-                  value={newProd.brandId}
-                  onChange={(e) => setNewProd({ ...newProd, brandId: e.target.value })}
-                  className="px-3 py-2 rounded-lg border border-slate-300 bg-white"
+                  value={productBrandFilter}
+                  onChange={(e) => setProductBrandFilter(e.target.value)}
+                  className="px-3 py-2 text-xs rounded-lg border border-[#DDE4DA] bg-white text-slate-700"
                 >
-                  <option value="">No Brand</option>
+                  <option value="ALL">All Brands ({brands.length})</option>
+                  <option value="NONE">No Brand / Generic</option>
                   {brands.map((b) => (
                     <option key={String(b.id)} value={String(b.id)}>
                       {String(b.name)}
                     </option>
                   ))}
                 </select>
-                <select
-                  value={newProd.drawingType}
-                  onChange={(e) =>
-                    setNewProd({ ...newProd, drawingType: e.target.value })
-                  }
-                  className="px-3 py-2 rounded-lg border border-slate-300 bg-white"
-                >
-                  {Object.entries(DRAWING_TYPE_LABELS).map(([k, lbl]) => (
-                    <option key={k} value={k}>
-                      {lbl}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="number"
-                  placeholder="Default Width (mm)"
-                  value={newProd.defaultWidthMm}
-                  onChange={(e) =>
-                    setNewProd({
-                      ...newProd,
-                      defaultWidthMm: Number(e.target.value) || 1800,
-                    })
-                  }
-                  className="px-3 py-2 rounded-lg border border-slate-300 font-mono"
-                />
-                <input
-                  type="number"
-                  placeholder="Default Height (mm)"
-                  value={newProd.defaultHeightMm}
-                  onChange={(e) =>
-                    setNewProd({
-                      ...newProd,
-                      defaultHeightMm: Number(e.target.value) || 1500,
-                    })
-                  }
-                  className="px-3 py-2 rounded-lg border border-slate-300 font-mono"
-                />
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    placeholder="Rate/SqFt"
-                    value={newProd.defaultRatePerSqFt}
-                    onChange={(e) =>
-                      setNewProd({
-                        ...newProd,
-                        defaultRatePerSqFt: Number(e.target.value) || 550,
-                      })
-                    }
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 font-mono"
-                  />
-                  <button
-                    type="submit"
-                    className="px-4 py-2 rounded-lg bg-[#294C3B] text-white font-semibold whitespace-nowrap"
-                  >
-                    + Add
-                  </button>
-                </div>
+
+                <span className="text-xs font-semibold text-slate-500 ml-1">
+                  Showing {filteredProducts.length} of {products.length} products
+                </span>
               </div>
-            </form>
-          )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {products.map((p) => {
-              const imgs =
-                (p.images as Array<{
-                  id: string;
-                  url: string;
-                  isDefault: boolean;
-                  viewType?: string | null;
-                }>) || [];
-              const defImg = imgs.find((i) => i.isDefault)?.url || imgs[0]?.url || null;
-              return (
-                <div
-                  key={String(p.id)}
-                  className="bg-white rounded-xl border border-[#DDE4DA] p-4 shadow-sm flex flex-col justify-between gap-3"
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditorProduct(null);
+                    setEditorModalOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#174535] text-white text-xs font-semibold hover:bg-[#10382D] transition shadow-xs whitespace-nowrap"
                 >
-                  <div>
-                    <div className="flex items-center justify-between text-xs mb-2">
-                      <span className="font-mono font-bold px-2 py-0.5 rounded bg-slate-100 text-[#294C3B]">
-                        {String(p.code)}
-                      </span>
-                      <span className="font-semibold text-slate-600">
-                        {formatINR(Number(p.defaultRatePerSqFt))}/sq.ft
-                      </span>
-                    </div>
-                    <div className="font-bold text-sm text-[#25382E]">
-                      {String(p.name)}
-                    </div>
-                    <div className="text-[11px] text-[#718075] mb-3">
-                      {(p.category as { name: string })?.name}
-                      {(p.brand as { name: string } | null)?.name
-                        ? ` • ${(p.brand as { name: string }).name}`
-                        : ""}
-                    </div>
+                  <Plus className="w-3.5 h-3.5" /> + New Product Template
+                </button>
+              )}
+            </div>
 
-                    <div className="bg-slate-50 rounded-lg border border-[#DDE4DA] p-2">
-                      <TechnicalDrawingSvg
-                        widthMm={Number(p.defaultWidthMm)}
-                        heightMm={Number(p.defaultHeightMm)}
-                        drawingType={String(p.drawingType)}
-                        customImageUrl={defImg}
-                        compact
-                      />
-                    </div>
-                  </div>
-
-                  {/* Multi-view Image List & Upload */}
-                  <div className="space-y-2 pt-2 border-t border-slate-100">
-                    {imgs.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5">
-                        {imgs.map((img) => (
-                          <div
-                            key={img.id}
-                            className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] border ${
-                              img.isDefault
-                                ? "bg-amber-50 border-amber-300 text-amber-800 font-semibold"
-                                : "bg-slate-50 border-[#DDE4DA] text-slate-600"
-                            }`}
-                          >
-                            <button
-                              type="button"
-                              onClick={() => setDefaultImage(String(p.id), img.id)}
-                              title="Set as Default"
-                            >
-                              <Star className="w-3 h-3" />
-                            </button>
-                            <span className="max-w-[85px] truncate" title={img.viewType || "Image"}>
-                              {img.viewType || "Image"}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => deleteImage(String(p.id), img.id)}
-                              className="text-rose-500"
-                            >
-                              ×
-                            </button>
-                          </div>
-                        ))}
+            {/* Product Cards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredProducts.map((p) => {
+                const imgs =
+                  (p.images as Array<{
+                    id: string;
+                    url: string;
+                    isDefault: boolean;
+                    viewType?: string | null;
+                  }>) || [];
+                const defImg = imgs.find((i) => i.isDefault)?.url || imgs[0]?.url || null;
+                return (
+                  <div
+                    key={String(p.id)}
+                    className="bg-white rounded-xl border border-[#DDE4DA] p-4 shadow-sm flex flex-col justify-between gap-3 hover:border-[#174535]/40 transition"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between text-xs mb-1.5">
+                        <span className="font-mono font-bold px-2 py-0.5 rounded bg-[#F7F8F4] text-[#174535] border border-[#E5EAE3]">
+                          {String(p.code)}
+                        </span>
+                        <span className="font-semibold text-slate-700">
+                          {formatINR(Number(p.defaultRatePerSqFt))}/sq.ft
+                        </span>
                       </div>
-                    )}
+                      <div className="font-bold text-sm text-[#1F2937] leading-snug">
+                        {String(p.name)}
+                      </div>
+                      <div className="text-[11px] text-slate-500 mb-2.5">
+                        {(p.category as { name: string })?.name}
+                        {(p.brand as { name: string } | null)?.name
+                          ? ` • ${(p.brand as { name: string }).name}`
+                          : ""}
+                      </div>
 
-                    <div className="grid grid-cols-2 gap-1.5 pt-1">
-                      <label className="inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg border border-slate-300 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer text-center">
-                        <Upload className="w-3 h-3" /> Front View
-                        <input
-                          type="file"
-                          accept=".png,.jpg,.jpeg,.svg,.webp"
-                          className="hidden"
-                          onChange={(e) =>
-                            handleUploadProductImage(String(p.id), e.target.files?.[0], "Front View", true)
-                          }
+                      <div className="bg-slate-50/70 rounded-lg border border-[#DDE4DA] p-2">
+                        <TechnicalDrawingSvg
+                          widthMm={Number(p.defaultWidthMm)}
+                          heightMm={Number(p.defaultHeightMm)}
+                          drawingType={String(p.drawingType)}
+                          defaultPanelsJson={p.defaultPanelsJson as string}
+                          customImageUrl={defImg}
+                          compact
                         />
-                      </label>
-                      <label className="inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg border border-slate-300 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer text-center">
-                        <Upload className="w-3 h-3" /> Top View
-                        <input
-                          type="file"
-                          accept=".png,.jpg,.jpeg,.svg,.webp"
-                          className="hidden"
-                          onChange={(e) =>
-                            handleUploadProductImage(String(p.id), e.target.files?.[0], "Top View", false)
-                          }
-                        />
-                      </label>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 pt-2 border-t border-slate-100">
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditorProduct(p);
+                            setEditorModalOpen(true);
+                          }}
+                          className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#174535]/10 text-[#174535] text-xs font-semibold hover:bg-[#174535] hover:text-white transition"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" /> Edit Drawing &amp; Panels
+                        </button>
+                      )}
+
+                      {/* Multi-view Image List & Upload */}
+                      {imgs.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {imgs.map((img) => (
+                            <div
+                              key={img.id}
+                              className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] border ${
+                                img.isDefault
+                                  ? "bg-amber-50 border-amber-300 text-amber-800 font-semibold"
+                                  : "bg-slate-50 border-[#DDE4DA] text-slate-600"
+                              }`}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => setDefaultImage(String(p.id), img.id)}
+                                title="Set as Default"
+                              >
+                                <Star className="w-3 h-3" />
+                              </button>
+                              <span className="max-w-[85px] truncate" title={img.viewType || "Image"}>
+                                {img.viewType || "Image"}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => deleteImage(String(p.id), img.id)}
+                                className="text-rose-500 font-bold"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <label className="inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg border border-slate-200 text-[10px] font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer text-center">
+                          <Upload className="w-3 h-3" /> Front Photo
+                          <input
+                            type="file"
+                            accept=".png,.jpg,.jpeg,.svg,.webp"
+                            className="hidden"
+                            onChange={(e) =>
+                              handleUploadProductImage(String(p.id), e.target.files?.[0], "Front View", true)
+                            }
+                          />
+                        </label>
+                        <label className="inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg border border-slate-200 text-[10px] font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer text-center">
+                          <Upload className="w-3 h-3" /> Top Photo
+                          <input
+                            type="file"
+                            accept=".png,.jpg,.jpeg,.svg,.webp"
+                            className="hidden"
+                            onChange={(e) =>
+                              handleUploadProductImage(String(p.id), e.target.files?.[0], "Top View", false)
+                            }
+                          />
+                        </label>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
+
+            {/* Drawing Editor Modal */}
+            <DrawingEditorModal
+              open={editorModalOpen}
+              onClose={() => setEditorModalOpen(false)}
+              product={editorProduct}
+              categories={categories as any}
+              brands={brands as any}
+              onSave={handleSaveProductTemplate}
+            />
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Tab 4: Master Options */}
       {tab === "options" && (

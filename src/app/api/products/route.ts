@@ -60,7 +60,9 @@ export async function POST(req: NextRequest) {
         categoryId,
         brandId: body.brandId || null,
         drawingType,
-        defaultPanelsJson: JSON.stringify(getDefaultDrawingConfig(drawingType, defaultWidthMm)),
+        defaultPanelsJson: body.defaultPanelsJson
+          ? String(body.defaultPanelsJson)
+          : JSON.stringify(getDefaultDrawingConfig(drawingType, defaultWidthMm)),
         defaultWidthMm,
         defaultHeightMm,
         defaultRatePerSqFt,
