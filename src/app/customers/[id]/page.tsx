@@ -76,9 +76,9 @@ export default async function CustomerDetailPage({
               <Building2 className="w-4 h-4 text-slate-400 mt-0.5" />
               <div>
                 <div className="text-xs text-slate-400 font-semibold uppercase">
-                  Contact Person
+                  Customer Type
                 </div>
-                <div className="font-semibold text-slate-800">{customer.contactPerson}</div>
+                <div className="font-semibold text-slate-800">{customer.customerType}</div>
               </div>
             </div>
             <div className="flex items-start gap-3">

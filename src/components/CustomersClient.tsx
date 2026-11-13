@@ -149,10 +149,18 @@ export function CustomersClient() {
     const method = editingId ? "PATCH" : "POST";
 
     try {
+      const payload = {
+        ...form,
+        contactPerson: form.name.trim(),
+        email: form.email?.trim() || null,
+        city: null,
+        state: null,
+      };
+
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -377,7 +385,7 @@ export function CustomersClient() {
                       </div>
                     </th>
                     <th className="px-4 py-3 whitespace-nowrap">Contact</th>
-                    <th className="px-4 py-3 whitespace-nowrap">Location</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Address</th>
                     <th className="px-4 py-3 text-center whitespace-nowrap">Projects</th>
                     <th className="px-4 py-3 text-center whitespace-nowrap">Quotations</th>
                     <th
@@ -426,11 +434,6 @@ export function CustomersClient() {
                               >
                                 {c.customerType}
                               </span>
-                              {c.contactPerson && c.contactPerson !== c.name && (
-                                <span className="text-[11px] text-slate-400 truncate max-w-[120px]" title={`Contact Person: ${c.contactPerson}`}>
-                                  ({c.contactPerson})
-                                </span>
-                              )}
                             </div>
                           </div>
                         </td>
@@ -454,15 +457,12 @@ export function CustomersClient() {
                           </div>
                         </td>
 
-                        {/* Location: City and address */}
-                        <td className="px-4 py-3.5 align-middle max-w-[220px]">
-                          <div className="flex flex-col" title={fullAddress}>
-                            <span className="text-xs font-semibold text-[#1F2937] flex items-center gap-1">
-                              <MapPin className="w-3 h-3 text-[#8BA77A] shrink-0 inline" />
-                              {cityCandidate || "—"}
-                            </span>
-                            <span className="text-[11px] text-[#718075] truncate mt-0.5">
-                              {c.billingAddress}
+                        {/* Address */}
+                        <td className="px-4 py-3.5 align-middle max-w-[240px]">
+                          <div className="flex items-center gap-1.5" title={c.billingAddress}>
+                            <MapPin className="w-3.5 h-3.5 text-[#8BA77A] shrink-0" />
+                            <span className="text-xs text-[#1F2937] truncate">
+                              {c.billingAddress || "—"}
                             </span>
                           </div>
                         </td>
@@ -547,14 +547,9 @@ export function CustomersClient() {
                       >
                         {c.name}
                       </Link>
-                      {c.contactPerson && c.contactPerson !== c.name && (
-                        <div className="text-xs text-slate-400 mt-0.5">
-                          Attn: {c.contactPerson}
-                        </div>
-                      )}
                     </div>
 
-                    {/* Contact & Location Details */}
+                    {/* Contact & Address Details */}
                     <div className="space-y-1.5 text-xs text-slate-600 bg-[#F7F8F4] p-2.5 rounded-lg border border-[#E5EAE3]">
                       <div className="flex items-center gap-2">
                         <Phone className="w-3.5 h-3.5 text-[#174535] shrink-0" />
@@ -568,7 +563,7 @@ export function CustomersClient() {
                       )}
                       <div className="flex items-start gap-2 pt-0.5">
                         <MapPin className="w-3.5 h-3.5 text-[#8BA77A] shrink-0 mt-0.5" />
-                        <span className="line-clamp-2">{fullAddress}</span>
+                        <span className="line-clamp-2">{c.billingAddress}</span>
                       </div>
                     </div>
 
@@ -711,19 +706,7 @@ export function CustomersClient() {
 
                 <div>
                   <label className="block text-xs font-semibold text-[#1F2937] mb-1">
-                    Contact Person Name
-                  </label>
-                  <input
-                    value={form.contactPerson}
-                    onChange={(e) => setForm({ ...form, contactPerson: e.target.value })}
-                    placeholder="Optional contact person name"
-                    className="w-full px-3 py-2 text-xs sm:text-sm rounded-lg border border-[#E5EAE3] bg-white focus:outline-none focus:ring-2 focus:ring-[#174535]/15 focus:border-[#174535] text-[#1F2937]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-[#1F2937] mb-1">
-                    Alternate Contact
+                    Alternate Contact <span className="font-normal text-slate-400">(Optional)</span>
                   </label>
                   <input
                     value={form.alternateNumber}
@@ -735,42 +718,18 @@ export function CustomersClient() {
 
                 <div>
                   <label className="block text-xs font-semibold text-[#1F2937] mb-1">
-                    Email Address
+                    Email Address <span className="font-normal text-slate-400">(Optional)</span>
                   </label>
                   <input
                     type="email"
                     value={form.email}
                     onChange={(e) => setForm({ ...form, email: e.target.value })}
-                    placeholder="client@domain.com"
+                    placeholder="client@domain.com (optional)"
                     className="w-full px-3 py-2 text-xs sm:text-sm rounded-lg border border-[#E5EAE3] bg-white focus:outline-none focus:ring-2 focus:ring-[#174535]/15 focus:border-[#174535] text-[#1F2937]"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-[#1F2937] mb-1">
-                    City
-                  </label>
-                  <input
-                    value={form.city}
-                    onChange={(e) => setForm({ ...form, city: e.target.value })}
-                    placeholder="e.g. Mumbai, Pune, Delhi"
-                    className="w-full px-3 py-2 text-xs sm:text-sm rounded-lg border border-[#E5EAE3] bg-white focus:outline-none focus:ring-2 focus:ring-[#174535]/15 focus:border-[#174535] text-[#1F2937]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-[#1F2937] mb-1">
-                    State
-                  </label>
-                  <input
-                    value={form.state}
-                    onChange={(e) => setForm({ ...form, state: e.target.value })}
-                    placeholder="e.g. Maharashtra"
-                    className="w-full px-3 py-2 text-xs sm:text-sm rounded-lg border border-[#E5EAE3] bg-white focus:outline-none focus:ring-2 focus:ring-[#174535]/15 focus:border-[#174535] text-[#1F2937]"
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
                   <label className="block text-xs font-semibold text-[#1F2937] mb-1">
                     GSTIN / Tax Number <span className="font-normal text-slate-400">(Optional)</span>
                   </label>
@@ -785,7 +744,7 @@ export function CustomersClient() {
 
               <div>
                 <label className="block text-xs font-semibold text-[#1F2937] mb-1">
-                  Billing Address <span className="text-rose-500">*</span>
+                  Address <span className="text-rose-500">*</span>
                 </label>
                 <input
                   required
