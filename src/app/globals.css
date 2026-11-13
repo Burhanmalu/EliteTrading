@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f7f8f4;
+  --foreground: #1f2937;
+  --primary-forest: #174535;
+  --deep-forest: #10382d;
+  --dark-green: #0d2e24;
+  --sage: #8ba77a;
+  --light-sage: #b2c6a5;
+  --warm-ivory: #f3f0e3;
+  --border-sage: #e5eae3;
+  --text-secondary: #64748b;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body, html {
+    background: #ffffff !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .print-break-inside-avoid {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
+
+/* Suppress number input spinners */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}

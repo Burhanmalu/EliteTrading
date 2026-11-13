@@ -1,0 +1,372 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique // ADMIN, SALES_MANAGER, VIEWER
+  description String?
+  permissions String   @default("[]") // JSON array of permission keys
+  users       User[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model User {
+  id           String        @id @default(cuid())
+  name         String
+  email        String        @unique
+  passwordHash String
+  phone        String?
+  isActive     Boolean       @default(true)
+  roleId       String
+  role         Role          @relation(fields: [roleId], references: [id])
+  quotations   Quotation[]   @relation("QuotationCreatedBy")
+  activityLogs ActivityLog[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Customer {
+  id              String      @id @default(cuid())
+  customerCode    String      @unique // e.g., CUST-0001
+  name            String
+  contactPerson   String
+  mobile          String
+  alternateNumber String?
+  email           String?
+  billingAddress  String
+  city            String?
+  state           String?
+  gstNumber       String?
+  customerType    String      @default("Residential") // Residential, Commercial, Builder, Architect, Contractor
+  remarks         String?
+  projects        Project[]
+  quotations      Quotation[]
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([name])
+  @@index([mobile])
+}
+
+model Project {
+  id                     String                @id @default(cuid())
+  projectCode            String                @unique // e.g., PRJ-0001
+  name                   String
+  customerId             String
+  customer               Customer              @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  siteName               String
+  siteAddress            String
+  contactPerson          String?
+  contactNumber          String?
+  category               String // Infinity Metal, UPVC, Aluminium, Domal, Glass Partitions, Mixed
+  description            String?
+  startDate              DateTime?
+  expectedCompletionDate DateTime?
+  status                 String                @default("Project Created") // Project Created, Installation Not Scheduled, Installation Scheduled, Installation In Progress, Partially Installed, Installation Completed
+  // Approved quotation linkage
+  convertedFromQuoteId   String?               @unique
+  approvedQuotation      Quotation?            @relation("ApprovedQuoteProject", fields: [convertedFromQuoteId], references: [id])
+  quotations             Quotation[]           @relation("ProjectQuotations")
+  installationSchedule   InstallationSchedule?
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+
+  @@index([customerId])
+  @@index([status])
+}
+
+model InstallationSchedule {
+  id                     String    @id @default(cuid())
+  projectId              String    @unique
+  project                Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  installationDate       DateTime?
+  expectedCompletionDate DateTime?
+  installationTime       String? // e.g. "10:00 AM" or "Morning Shift"
+  supervisor             String?
+  teamMembers            String? // Comma-separated or team name
+  siteContactPerson      String?
+  siteContactNumber      String?
+  installationAddress    String?
+  internalRemarks        String?
+  customerInstructions   String?
+  status                 String    @default("Not Scheduled") // Not Scheduled, Scheduled, Installation In Progress, Partially Installed, Completed, On Hold, Rescheduled
+  rescheduledCount       Int       @default(0)
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  @@index([status])
+  @@index([installationDate])
+}
+
+model ProductCategory {
+  id              String    @id @default(cuid())
+  name            String    @unique
+  slug            String    @unique
+  description     String?
+  showUpvcFields  Boolean   @default(false)
+  sortOrder       Int       @default(0)
+  isActive        Boolean   @default(true)
+  products        Product[]
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model Brand {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?
+  isActive    Boolean   @default(true)
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Product {
+  id                 String                 @id @default(cuid())
+  code               String                 @unique
+  name               String
+  categoryId         String
+  category           ProductCategory        @relation(fields: [categoryId], references: [id])
+  brandId            String?
+  brand              Brand?                 @relation(fields: [brandId], references: [id])
+  drawingType        String                 @default("SLIDING_3_TRACK") // SVG template key
+  defaultPanelsJson  String                 @default("[]") // JSON array of panel configs
+  defaultWidthMm     Int                    @default(1800)
+  defaultHeightMm    Int                    @default(1500)
+  defaultRatePerSqFt Float                  @default(550)
+  showUpvcFields     Boolean? // null = inherit from category
+  description        String?
+  isActive           Boolean                @default(true)
+  images             ProductImage[]
+  specifications     ProductSpecification[]
+  pricingConfigs     PricingConfiguration[]
+  components         QuotationComponent[]
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+
+  @@index([categoryId])
+  @@index([brandId])
+}
+
+model ProductImage {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String
+  title     String?
+  viewType  String   @default("Technical Drawing") // Technical Drawing, Front View, Inside View, Outside View, Photo
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([productId])
+}
+
+model ProductSpecification {
+  id                String   @id @default(cuid())
+  productId         String
+  product           Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  profileSystem     String?
+  glassType         String?
+  profileColour     String?
+  meshType          String?
+  track             String?
+  trackRi           String?
+  slidingSash       String?
+  slidingSashRi     String?
+  flymeshSash       String?
+  mullionRi         String?
+  locking           String?
+  handleColour      String?
+  handleType        String?
+  lockableEspag     String?
+  rollerType        String?
+  additionalAccess  String?
+  customFieldsJson  String   @default("{}")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([productId])
+}
+
+model PricingConfiguration {
+  id           String   @id @default(cuid())
+  productId    String
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name         String   @default("Standard Rate")
+  ratePerSqFt  Float
+  minSqFt      Float?
+  isDefault    Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model MasterOption {
+  id            String   @id @default(cuid())
+  optionType    String // PROFILE_SYSTEM, GLASS_TYPE, PROFILE_COLOUR, MESH_TYPE, ACCESSORY, LOCKING, HANDLE_TYPE, HANDLE_COLOUR, ROLLER_TYPE
+  name          String
+  categoryScope String   @default("ALL") // ALL or category slug
+  extraRate     Float    @default(0)
+  isActive      Boolean  @default(true)
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([optionType])
+}
+
+model Quotation {
+  id                   String               @id @default(cuid())
+  quotationNumber      String               @unique // e.g., ET-2026-0001 or ET-2026-0001-R1
+  baseQuotationNumber  String // e.g., ET-2026-0001 (groups revisions)
+  revisionNumber       Int                  @default(1)
+  customerId           String
+  customer             Customer             @relation(fields: [customerId], references: [id])
+  projectId            String?
+  project              Project?             @relation("ProjectQuotations", fields: [projectId], references: [id])
+  createdById          String?
+  createdBy            User?                @relation("QuotationCreatedBy", fields: [createdById], references: [id])
+  siteName             String               @default("")
+  siteLocation         String
+  siteContactPerson    String?
+  siteContactNumber    String?
+  validUntil           DateTime?
+  referenceNumber      String?
+  salesperson          String?
+  remarks              String?
+  status               String               @default("Draft") // Draft, Sent, Approved, Rejected, Revision Requested, Expired
+  // Approval records
+  approvalDate         DateTime?
+  approvalRemarks      String?
+  approvalDocumentUrl  String?
+  approvedByCustomer   String?
+  // 1:1 Project conversion back-reference
+  convertedProject     Project?             @relation("ApprovedQuoteProject")
+  gstPercent           Float                @default(18)
+  taxTreatment         String               @default("EXCLUSIVE") // EXCLUSIVE, INCLUSIVE, NO_GST
+  discountType         String               @default("PERCENT") // PERCENT, FIXED
+  discountValue        Float                @default(0)
+  transportCharges     Float                @default(0)
+  installationCharges  Float                @default(0)
+  otherCharges         Float                @default(0)
+  totalComponents      Int                  @default(0)
+  totalSqFt            Float                @default(0)
+  avgRatePerSqFt       Float                @default(0)
+  subtotal             Float                @default(0)
+  discountAmount       Float                @default(0)
+  taxableAmount        Float                @default(0)
+  gstAmount            Float                @default(0)
+  grandTotal           Float                @default(0)
+  snapshotCustomerJson String               @default("{}") // Frozen customer & project snapshot
+  termsText            String?
+  components           QuotationComponent[]
+  quotationDate        DateTime             @default(now())
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  @@index([customerId])
+  @@index([projectId])
+  @@index([status])
+  @@index([quotationDate])
+}
+
+model QuotationComponent {
+  id                   String    @id @default(cuid())
+  quotationId          String
+  quotation            Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  sortOrder            Int       @default(0)
+  code                 String // e.g., W1, W2, D1
+  name                 String
+  location             String    @default("")
+  productId            String?
+  product              Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
+  categoryName         String    @default("")
+  brandName            String?
+  widthMm              Float
+  heightMm             Float
+  quantity             Int       @default(1)
+  sqFtPerUnit          Float
+  ratePerSqFt          Float
+  unitPrice            Float
+  totalValue           Float
+  isPriceOverridden    Boolean   @default(false)
+  overrideReason       String?
+  drawingType          String    @default("SLIDING_3_TRACK")
+  drawingConfigJson    String    @default("{}") // Custom panel widths, divisions, viewDirection, slidingArrows
+  customImageUrl       String?
+  showUpvcFields       Boolean   @default(false)
+  profileSystem        String?
+  glassType            String?
+  profileColour        String?
+  meshType             String?
+  track                String?
+  trackRi              String?
+  slidingSash          String?
+  slidingSashRi        String?
+  flymeshSash          String?
+  mullionRi            String?
+  locking              String?
+  handleColour         String?
+  handleType           String?
+  lockableEspag        String?
+  rollerType           String?
+  additionalAccess     String?
+  remarks              String?
+  snapshotProductJson  String    @default("{}") // Frozen product snapshot
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@index([quotationId])
+}
+
+model QuotationTerm {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  isDefault Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CompanySetting {
+  id                    String   @id @default("default")
+  companyName           String   @default("EliteTrading")
+  tagline               String   @default("Architectural Doors, Windows & Glass Systems")
+  website               String   @default("https://elitetradingfd.com")
+  email                 String   @default("info@elitetradingfd.com")
+  phone                 String   @default("+91 98765 43210")
+  address               String   @default("Plot No. 42, Industrial Estate, Phase II, New Delhi - 110020")
+  gstNumber             String   @default("07AABCE1234F1Z5")
+  panNumber             String   @default("AABCE1234F")
+  logoUrl               String?
+  defaultGstPercent     Float    @default(18)
+  quotationPrefix       String   @default("ET")
+  quotationNumberFormat String   @default("{PREFIX}-{YEAR}-{SEQ}")
+  bankName              String?
+  bankAccountNumber     String?
+  bankIfsc              String?
+  updatedAt             DateTime @updatedAt
+}
+
+model ActivityLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action     String // CREATE, UPDATE, DELETE, STATUS_CHANGE, PDF_EXPORT
+  entityType String // CUSTOMER, PROJECT, QUOTATION, PRODUCT, SETTINGS
+  entityId   String?
+  summary    String
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([entityType])
+}
+
