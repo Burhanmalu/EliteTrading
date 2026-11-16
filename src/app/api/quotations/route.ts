@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
     prisma.quotation.findMany({
       where,
       include: {
-        customer: { select: { id: true, name: true, customerCode: true, mobile: true } },
+        customer: { select: { id: true, name: true, customerCode: true, mobile: true, alternateNumber: true } },
         project: { select: { id: true, name: true, projectCode: true, siteName: true } },
         convertedProject: { select: { id: true, name: true, projectCode: true } },
       },

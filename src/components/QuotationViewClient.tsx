@@ -16,6 +16,8 @@ import {
   XCircle,
   FileText,
   Upload,
+  AlertTriangle,
+  Loader2,
 } from "lucide-react";
 import { formatDate, formatINR, formatNumber } from "@/lib/format";
 import { StatusBadge } from "./StatusBadge";
@@ -25,6 +27,32 @@ import {
   parseDrawingConfig,
   isVentilationProduct,
 } from "@/lib/drawing-types";
+
+function WhatsAppIcon({ className = "w-4 h-4" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="24"
+      height="24"
+      fill="currentColor"
+      className={className}
+    >
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
+    </svg>
+  );
+}
+
+function normalizeWhatsAppPhone(phone: string | null | undefined): string | null {
+  if (!phone) return null;
+  const digits = phone.replace(/\D/g, "");
+  if (!digits) return null;
+  if (digits.length === 10) return `91${digits}`;
+  if (digits.length === 11 && digits.startsWith("0")) return `91${digits.slice(1)}`;
+  if (digits.length === 12 && digits.startsWith("91")) return digits;
+  if (digits.length === 13 && digits.startsWith("091")) return digits.slice(1);
+  if (digits.length >= 11 && digits.length <= 15) return digits;
+  return null;
+}
 
 interface QuotationViewProps {
   quotation: {
@@ -59,6 +87,7 @@ interface QuotationViewProps {
       name: string;
       contactPerson: string;
       mobile: string;
+      alternateNumber?: string | null;
       email?: string | null;
       billingAddress: string;
       city?: string | null;
@@ -153,6 +182,27 @@ export function QuotationViewClient({
     approvalDocumentUrl: "",
   });
   const [converting, setConverting] = useState(false);
+  const [sharingPdf, setSharingPdf] = useState(false);
+  const [whatsAppNotice, setWhatsAppNotice] = useState<{
+    quoteNumber: string;
+    customerName: string;
+    phone: string;
+  } | null>(null);
+  const [whatsAppError, setWhatsAppError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (whatsAppNotice) {
+      const t = setTimeout(() => setWhatsAppNotice(null), 12000);
+      return () => clearTimeout(t);
+    }
+  }, [whatsAppNotice]);
+
+  useEffect(() => {
+    if (whatsAppError) {
+      const t = setTimeout(() => setWhatsAppError(null), 8000);
+      return () => clearTimeout(t);
+    }
+  }, [whatsAppError]);
 
   useEffect(() => {
     if (searchParams.get("print") === "1") {
@@ -272,6 +322,131 @@ export function QuotationViewClient({
     if (res.ok) {
       const data = await res.json();
       router.push(`/quotations/${data.quotation.id}/edit`);
+    }
+  };
+
+  // WhatsApp Send Action (Web Share API with file support & Desktop Fallback)
+  const handleWhatsAppSend = async () => {
+    if (sharingPdf) return;
+    setWhatsAppError(null);
+
+    // 1. Fetch / determine customer phone number
+    let rawPhone = quotation.customer?.mobile || quotation.customer?.alternateNumber;
+
+    if (!rawPhone && quotation.customer?.id) {
+      try {
+        const custRes = await fetch(`/api/customers/${quotation.customer.id}`);
+        if (custRes.ok) {
+          const custData = await custRes.json();
+          rawPhone = custData.customer?.mobile || custData.customer?.alternateNumber;
+        }
+      } catch (err) {
+        console.error("Error fetching customer phone:", err);
+      }
+    }
+
+    if (!rawPhone) {
+      setWhatsAppError(
+        `WhatsApp number missing for customer "${quotation.customer?.name || "Customer"}". Please add a mobile number in the Customers module.`
+      );
+      return;
+    }
+
+    // 2. Validate and normalize Indian phone number
+    const normalizedPhone = normalizeWhatsAppPhone(rawPhone);
+    if (!normalizedPhone) {
+      setWhatsAppError(
+        `Invalid phone number "${rawPhone}". Please ensure a valid 10-digit Indian mobile number is entered.`
+      );
+      return;
+    }
+
+    // 3. Prepare personalized WhatsApp message
+    const customerName = quotation.customer?.name || "Valued Customer";
+    const message = [
+      `Dear ${customerName},`,
+      ``,
+      `Thank you for your interest in *Elite Trading*. Please find the details for your quotation below:`,
+      ``,
+      `📄 *Quotation No:* ${quotation.quotationNumber}`,
+      `💰 *Total Amount:* ${formatINR(quotation.grandTotal)}`,
+      `📐 *Total Items:* ${quotation.totalComponents} components (${formatNumber(quotation.totalSqFt)} Sq.Ft.)`,
+      ``,
+      `Your official technical quotation PDF with complete drawings and profile specifications is attached.`,
+      ``,
+      `🏢 *Elite Trading* – Architectural French Doors & Windows | uPVC | Aluminium | Domal | Glass Partitions`,
+      `📞 Phone: +91 9755036143 / +91 98110 44556`,
+      `🌐 Website: https://elitetradingfd.com`,
+      `📍 Indore, Madhya Pradesh`,
+      ``,
+      `Please let us know if you need any adjustments or clarifications!`,
+    ].join("\n");
+
+    setSharingPdf(true);
+
+    try {
+      // 4. Fetch the quotation PDF once as a Blob
+      const pdfRes = await fetch(`/api/quotations/${quotation.id}/pdf`);
+      if (!pdfRes.ok) {
+        throw new Error("Failed to generate quotation PDF");
+      }
+      const pdfBlob = await pdfRes.blob();
+      const safeQuoteNumber = quotation.quotationNumber.replace(/[^a-zA-Z0-9_-]/g, "_");
+      const fileName = `Quotation_${safeQuoteNumber}.pdf`;
+      const pdfFile = new File([pdfBlob], fileName, { type: "application/pdf" });
+
+      // 5. Try Web Share API with file-sharing support (mobile / supported devices)
+      let sharedNatively = false;
+      const canShareFiles =
+        typeof navigator !== "undefined" &&
+        typeof navigator.share === "function" &&
+        typeof navigator.canShare === "function" &&
+        navigator.canShare({ files: [pdfFile] });
+
+      if (canShareFiles) {
+        try {
+          await navigator.share({
+            title: `Quotation ${quotation.quotationNumber} - Elite Trading`,
+            text: message,
+            files: [pdfFile],
+          });
+          sharedNatively = true;
+        } catch (shareErr: unknown) {
+          if ((shareErr as Error)?.name === "AbortError") {
+            // User cancelled sharing in the native picker
+            return;
+          }
+          console.warn("Native file sharing failed, falling back to desktop WhatsApp flow:", shareErr);
+          sharedNatively = false;
+        }
+      }
+
+      // 6. Desktop / unsupported fallback:
+      // Download the PDF from the existing blob (no second fetch) & open WhatsApp Web
+      if (!sharedNatively) {
+        const blobUrl = URL.createObjectURL(pdfBlob);
+        const link = document.createElement("a");
+        link.href = blobUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+
+        const waUrl = `https://wa.me/${normalizedPhone}?text=${encodeURIComponent(message)}`;
+        window.open(waUrl, "_blank");
+
+        setWhatsAppNotice({
+          quoteNumber: quotation.quotationNumber,
+          customerName,
+          phone: normalizedPhone,
+        });
+      }
+    } catch (err: unknown) {
+      console.error("WhatsApp quotation sharing error:", err);
+      setWhatsAppError("Failed to generate or share quotation PDF. Please try again.");
+    } finally {
+      setSharingPdf(false);
     }
   };
 
@@ -406,6 +581,21 @@ export function QuotationViewClient({
           >
             <FileDown className="w-3.5 h-3.5" /> Download PDF
           </a>
+
+          <button
+            type="button"
+            disabled={sharingPdf}
+            onClick={handleWhatsAppSend}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#25D366] text-white text-xs font-bold hover:bg-[#20ba59] shadow-sm transition cursor-pointer disabled:opacity-60"
+            title="Send via WhatsApp"
+          >
+            {sharingPdf ? (
+              <Loader2 className="w-4 h-4 animate-spin text-white" />
+            ) : (
+              <WhatsAppIcon className="w-4 h-4 fill-white" />
+            )}
+            <span>{sharingPdf ? "Preparing..." : "Send via WhatsApp"}</span>
+          </button>
         </div>
       </div>
 
@@ -590,7 +780,7 @@ export function QuotationViewClient({
             <img
               src={company.logoUrl || "/logo.png"}
               alt={company.companyName}
-              className="w-12 h-12 rounded-xl object-cover border border-[#8BA77A]/50 bg-[#F3F0E3] shrink-0"
+              className="w-12 h-12 rounded-xl object-contain border border-[#8BA77A]/50 bg-white/5 shrink-0"
             />
             <div>
               <h2 className="text-xl font-bold tracking-tight text-[#F3F0E3]">
@@ -842,6 +1032,59 @@ export function QuotationViewClient({
           </div>
         </div>
       </div>
+
+      {/* WhatsApp Instruction Notice Banner */}
+      {whatsAppNotice && (
+        <div className="fixed bottom-6 right-6 z-50 max-w-md bg-white border-2 border-[#25D366] rounded-xl shadow-2xl p-4 animate-in fade-in slide-in-from-bottom-3 duration-300">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-full bg-[#25D366]/15 text-[#25D366] flex items-center justify-center shrink-0">
+              <WhatsAppIcon className="w-5 h-5 text-[#25D366]" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-2">
+                <h4 className="text-xs font-bold text-[#1F2937]">Quotation PDF Downloaded</h4>
+                <button
+                  onClick={() => setWhatsAppNotice(null)}
+                  className="text-slate-400 hover:text-slate-600 text-sm leading-none"
+                  title="Dismiss"
+                >
+                  ×
+                </button>
+              </div>
+              <p className="text-xs text-slate-600 mt-1">
+                WhatsApp opened for <strong className="text-[#1F2937]">{whatsAppNotice.customerName}</strong> (+{whatsAppNotice.phone}).
+              </p>
+              <div className="mt-2 text-xs font-semibold text-[#174535] bg-emerald-50 px-2.5 py-1.5 rounded-lg border border-emerald-200 flex items-center gap-1.5">
+                <span>📎</span> Please attach the downloaded quotation PDF and press <strong>Send</strong>.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* WhatsApp Error Toast */}
+      {whatsAppError && (
+        <div className="fixed bottom-6 right-6 z-50 max-w-md bg-white border-2 border-rose-300 rounded-xl shadow-2xl p-4 animate-in fade-in slide-in-from-bottom-3 duration-300">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-2">
+                <h4 className="text-xs font-bold text-rose-700">WhatsApp Error</h4>
+                <button
+                  onClick={() => setWhatsAppError(null)}
+                  className="text-slate-400 hover:text-slate-600 text-sm leading-none"
+                  title="Dismiss"
+                >
+                  ×
+                </button>
+              </div>
+              <p className="text-xs text-slate-600 mt-1">{whatsAppError}</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

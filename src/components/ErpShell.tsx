@@ -127,7 +127,7 @@ export function ErpShell({
             <img
               src="/logo.png"
               alt="EliteTrading Logo"
-              className="w-9 h-9 rounded-lg object-cover border border-[#8BA77A]/40 bg-[#F3F0E3] shadow-sm"
+              className="w-9 h-9 rounded-lg object-contain bg-white/5 border border-white/10 shadow-sm"
             />
             <div>
               <div className="font-bold text-base tracking-tight leading-none text-[#F3F0E3]">

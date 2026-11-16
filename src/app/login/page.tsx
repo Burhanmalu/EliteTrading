@@ -45,7 +45,7 @@ export default function LoginPage() {
             <img
               src="/logo.png"
               alt="EliteTrading Logo"
-              className="w-12 h-12 rounded-xl object-cover border border-[#8BA77A]/50 bg-[#F3F0E3] shadow-lg"
+              className="w-14 h-14 rounded-xl object-contain border border-white/15 bg-white/5 shadow-lg"
             />
             <div>
               <h1 className="text-2xl font-bold tracking-tight text-[#F3F0E3]">EliteTrading</h1>

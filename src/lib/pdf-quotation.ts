@@ -114,7 +114,7 @@ export async function generateQuotationPdfBuffer(
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({
       size: "A4",
-      margin: 32,
+      margins: { top: 32, bottom: 15, left: 32, right: 32 },
       bufferPages: true,
       info: {
         Title: `Quotation ${quotation.quotationNumber} - ${company.companyName}`,
@@ -974,7 +974,7 @@ export async function generateQuotationPdfBuffer(
 
       // Page break check — never split drawing from spec tables across pages
       let y = startY;
-      if (y + cardH > PAGE_H - 42) {
+      if (y > 170 && y + cardH > PAGE_H - 42) {
         doc.addPage();
         y = drawHeader();
       }
@@ -1763,7 +1763,7 @@ export async function generateQuotationPdfBuffer(
     const MAX_TERMS_Y = PAGE_H - 42;
 
     const ensureTermsSpace = (needed: number) => {
-      if (ty + needed > MAX_TERMS_Y) {
+      if (ty > 60 && ty + needed > MAX_TERMS_Y) {
         doc.addPage();
         ty = drawTermsHeader(true);
       }
@@ -1850,6 +1850,8 @@ export async function generateQuotationPdfBuffer(
     const range = doc.bufferedPageRange();
     for (let i = range.start; i < range.start + range.count; i++) {
       doc.switchToPage(i);
+      const prevBottomMargin = doc.page.margins.bottom;
+      doc.page.margins.bottom = 0; // Disable bottom margin check so footer text never triggers continueOnNewPage
       doc
         .fillColor(SLATE_MID)
         .font("Helvetica")
@@ -1858,14 +1860,15 @@ export async function generateQuotationPdfBuffer(
           `${company.companyName}  |  ${company.address}  |  ${company.website}`,
           MARGIN,
           PAGE_H - 24,
-          { width: CONTENT_W - 80 }
+          { width: CONTENT_W - 80, lineBreak: false }
         );
       doc.text(
         `Page ${i + 1} of ${range.count}`,
         MARGIN + CONTENT_W - 80,
         PAGE_H - 24,
-        { width: 80, align: "right" }
+        { width: 80, align: "right", lineBreak: false }
       );
+      doc.page.margins.bottom = prevBottomMargin;
     }
 
     doc.end();

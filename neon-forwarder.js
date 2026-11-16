@@ -3,10 +3,9 @@ const net = require("net");
 const targetIp = "3.142.41.151";
 
 const server = net.createServer((clientSocket) => {
-  const upstream = net.connect({ host: targetIp, port: 5432 }, () => {
-    clientSocket.pipe(upstream);
-    upstream.pipe(clientSocket);
-  });
+  const upstream = net.connect({ host: targetIp, port: 5432 });
+  clientSocket.pipe(upstream);
+  upstream.pipe(clientSocket);
 
   upstream.on("error", () => clientSocket.destroy());
   clientSocket.on("error", () => upstream.destroy());
